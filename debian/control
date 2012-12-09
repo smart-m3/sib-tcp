@@ -1,0 +1,11 @@
+Source: sib-tcp
+Section: user/Multimedia
+Priority: optional
+Maintainer: Francesco Morandi <francescomorandi84@libero.it>
+Build-Depends: debhelper (>= 4.0.0)
+Standards-Version: 3.6.0
+
+Package: sib-tcp
+Architecture: any
+Depends: libwhiteboard (>= 2.3), libwhiteboard-dev (>= 2.3)
+Description: TCP connectivity module for SIB Daemon
