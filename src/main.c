@@ -1,4 +1,4 @@
-/*
+^/*
 
   2009, Nokia Corporation
   2012, University of Bologna
@@ -22,6 +22,11 @@
 #include <sibmsg.h> // SSAP parser 'n' gen
 //#include <sibdefs.h> // EncodingType
 #include <uuid/uuid.h>
+
+#ifdef HIPDEX
+#include <hipdexc.h>
+#endif
+
 
 #define MAX_THREADS 1000000
 #define SIB_PORT_DFLT 10010    // the port users will be connecting to
@@ -246,6 +251,11 @@ int main(int argc, char *argv[])
     g_thread_init(NULL);
     dbus_g_thread_init();
     GError *gerr = NULL;
+
+#ifdef HIPDEX
+    HIPDEX_Start();
+#endif
+
 
     /* Set signal handlers */
     signal(SIGINT, main_signal_handler);
@@ -613,6 +623,24 @@ gint client_receive_message( Client *client, NodeMsgContent_t *msg)
     gint index = 0;
     gboolean finished = FALSE;
 
+#ifdef HIPDEX
+    struct sockaddr_in sib_addr;
+    int size = sizeof(sib_addr);
+    void *sa = NULL;
+    if (getpeername(client->fd, (struct sockaddr *)&sib_addr, &size) < 0)
+    {
+        whiteboard_log_debug("ERROR: getpeernamefailed\n");
+        return -1;
+    }
+    sa = HIPDEX_GetSA(sib_addr.sin_addr.s_addr);
+    if (sa == NULL) {
+        whiteboard_log_debug("ERROR: unable to receive data without SA\n");
+        return -1;
+    }
+    char *cipher = malloc(RECVBUFSIZE);
+#endif
+
+
     while(!finished)
     {
         if( client->remaining_len )
@@ -657,7 +685,11 @@ gint client_receive_message( Client *client, NodeMsgContent_t *msg)
 
         if (!finished)
         {
+            #ifdef HIPDEX
+            rtmp = recv( client->fd, cipher, RECVBUFSIZE , 0);
+            #else
             rtmp = recv( client->fd, client->recvbuf, RECVBUFSIZE , 0);
+            #endif
             if(rtmp < 0)
             {
                 whiteboard_log_debug("receive error\n");
@@ -666,6 +698,9 @@ gint client_receive_message( Client *client, NodeMsgContent_t *msg)
             }
             else if (rtmp > 0)
             {
+                #ifdef HIPDEX
+                HIPDEX_Decrypt(sa, cipher, client->recvbuf, rtmp);
+                #endif
                 gchar *debug_txt = g_strndup( (gchar *)client->recvbuf, rtmp);
                 whiteboard_log_debug("Received message (%d bytes): %s\n", rtmp, debug_txt);
                 g_free(debug_txt);
@@ -681,6 +716,9 @@ gint client_receive_message( Client *client, NodeMsgContent_t *msg)
             }
         }
     }
+    #ifdef HIPDEX
+    free(cipher);
+    #endif
     return bytes_handled;
 }
 
@@ -1531,7 +1569,30 @@ static int listener_handle_subscribe(Listener *listener, Client *client, NodeMsg
             else
             {
                 //////One byte SOCKET EXPLORER/////////
+                int error_in_hipdex = 1;
+                #ifdef HIPDEX
+                struct sockaddr_in sib_addr;
+                int size = sizeof(sib_addr);
+                char cipher[2] = " ";
+                strcpy(cipher," ");
+                char plaintext[2] = " ";
+                if (getpeername(subwaiter->fd, (struct sockaddr *)&sib_addr, &size) >= 0)
+                {
+                    void * sa = HIPDEX_GetSA(sib_addr.sin_addr.s_addr);
+                    if (sa != NULL) {
+                        HIPDEX_Encrypt(sa, plaintext, cipher, 1);
+                        error_in_hipdex = 0;
+                    } else {
+                        whiteboard_log_debug("ERROR: unable to send data without SA\n");
+                    }
+                } else {
+                    whiteboard_log_debug("ERROR: getpeername failed\n");
+                }
+                n=send(subwaiter->fd, cipher, 1, 0);
+                #else
                 n=send(subwaiter->fd, " ", 1, 0);
+                error_in_hipdex = 0;
+                #endif
                 ///////////////////////////////////////
 
                 errorsock=getsockopt(subwaiter->fd, SOL_SOCKET, SO_ERROR, &optval, &optlen);
@@ -1540,7 +1601,7 @@ static int listener_handle_subscribe(Listener *listener, Client *client, NodeMsg
 
                 //printf (" spaceid %s \n nodeid %s \n subid %s\n",spaceid,nodeid,subid);
 
-                if ((optval!=0)||(n==-1))
+                if ((optval!=0)||(n==-1)||(error_in_hipdex!=0))
                 {
                     whiteboard_log_debug("\n Socket broken, i'll survive ;)\n");
 
@@ -2309,6 +2370,28 @@ gint client_send_message( int fd, guchar *buf, gint len)
     gint errorsock;
     ///
 
+    
+    #ifdef HIPDEX
+    struct sockaddr_in sib_addr;
+    int size = sizeof(sib_addr);
+    char *cipher = malloc(len);
+    if (getpeername(fd, (struct sockaddr *)&sib_addr, &size) >= 0)
+    {
+        void * sa = HIPDEX_GetSA(sib_addr.sin_addr.s_addr);
+        if (sa != NULL) {
+            HIPDEX_Encrypt(sa, buf, cipher, len);
+        } else {
+            whiteboard_log_debug("ERROR: unable to send data without SA\n");
+            free(cipher);
+            return -1;
+        }
+    } else {
+        whiteboard_log_debug("ERROR: getpeername failed\n");
+        free(cipher);
+        return -1;
+    }
+    #endif
+
     while(total < len)
     {
         ///
@@ -2317,15 +2400,25 @@ gint client_send_message( int fd, guchar *buf, gint len)
         {
             whiteboard_log_debug("Problems");
             whiteboard_log_debug_fe();
+            #ifdef HIPDEX
+            free(cipher);
+            #endif
             return -1;
         }
         ///
-
+        #ifdef HIPDEX
+        n = send(fd, cipher+total, bytesleft, 0);
+        #else
         n = send(fd, buf+total, bytesleft, 0);
+        #endif
+
         if(n == -1)
         {
             whiteboard_log_debug("Problems");
             whiteboard_log_debug_fe();
+			#ifdef HIPDEX
+            free(cipher);
+            #endif
             return -1;
         }
         total += n;
@@ -2334,6 +2427,9 @@ gint client_send_message( int fd, guchar *buf, gint len)
 
     whiteboard_log_debug("Ended transiction");
     whiteboard_log_debug_fe();
+    #ifdef HIPDEX
+    free(cipher);
+    #endif
     return 0;
 }
 
