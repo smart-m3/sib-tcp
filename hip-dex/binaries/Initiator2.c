@@ -1,0 +1,90 @@
+#include <hipdexc.h>
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
+int sRunning = 0;
+/*
+unsigned char sPriv[24] =
+{
+	0x47, 0x7d, 0x37, 0xc6, 0x3c, 0x71, 0x54, 0x2f,
+	0xab, 0xfe, 0xc9, 0x0b, 0xb6, 0xd9, 0xdc, 0x46,
+	0x30, 0x4c, 0x93, 0xaa, 0x73, 0x9c, 0x25, 0x44
+};
+
+unsigned char sPub[49] =
+{
+	0x04, 0xe5, 0xed, 0x11, 0xf6, 0x2f, 0x38, 0x35,
+	0x57, 0xaf, 0x13, 0x8c, 0xb7, 0x60, 0x79, 0x29,
+	0xd0, 0x2c, 0xf6, 0x90, 0x4e, 0x25, 0x8d, 0x1c,
+	0x49, 0x52, 0x5b, 0x9f, 0x46, 0xa3, 0xcc, 0xb3,
+	0xa6, 0x03, 0x49, 0xc2, 0x56, 0xd9, 0x4c, 0x81,
+	0xaf, 0x80, 0xbd, 0x9c, 0x9d, 0xc5, 0xa1, 0x65,
+	0x8b
+};
+*/
+
+
+unsigned char rHit[] =
+{
+	0x20, 0x01, 0x00, 0x15, 0x5c, 0xdd, 0x1c, 0xc6,
+	0xd5, 0x9e, 0xcd, 0x5d, 0x54, 0x4e, 0x6c, 0xb0
+};
+
+
+void SignalStop(int a)
+{
+	if (sRunning)
+	{
+		HIPDEX_Stop();
+		sRunning = 0;
+	}
+};
+
+int main(int argc, char** argv)
+{
+	printf("** HIP DEX++ Initiator V0.1\n");
+	printf("** Press Ctrl-C to quit...\n");
+
+	if (getuid() != 0)
+	{
+		printf("** Program must be run as root.\n");
+		return 1;
+	}
+
+	if (argc != 3)
+	{
+		printf("** Usage: ./initiator <interval> <handshakes>\n");
+		return 1;
+	}
+
+	HIPDEX_Start();
+        printf("Started HIP\n");
+	int tInter = atoi(argv[1]);
+	int tTimes = atoi(argv[2]);
+
+
+	while (tTimes > 0)
+	{
+		HIPDEX_Initiate(rHit, "127.0.0.1");
+		sleep(tInter);
+		struct sockaddr_in iAddr;
+		inet_pton(AF_INET, "193.167.187.27", &iAddr.sin_addr);
+		void *sa = HIPDEX_GetSA(iAddr.sin_addr.s_addr);
+		HIPDEX_RemoveSA(iAddr.sin_addr.s_addr);
+		sa = HIPDEX_GetSA(iAddr.sin_addr.s_addr);
+		--tTimes;
+		sleep(tInter);
+	}
+
+	if (sRunning) HIPDEX_Stop();
+
+	return 0;
+};
