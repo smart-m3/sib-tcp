@@ -17,7 +17,7 @@ echo " - Build atrifacts list -"
 ls -la .
 
 
-scp redsib*.deb redsib*.changes redsib*.dsc ${INCOMING}/
+scp sib-tcp*.deb sib-tcp*.changes sib-tcp*.dsc ${INCOMING}/
 
 
 exit 0
