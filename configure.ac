@@ -9,7 +9,7 @@
 AC_INIT()
 AC_CONFIG_AUX_DIR(config)
 
-AM_INIT_AUTOMAKE(sib-tcp, 0.4)
+AM_INIT_AUTOMAKE(sib-tcp, 0.8)
 AM_CONFIG_HEADER(config.h)
 
 #############################################################################
