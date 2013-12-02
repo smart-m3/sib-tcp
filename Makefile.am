@@ -10,4 +10,4 @@ EXTRA_DIST = \
 
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = include src hip-dex
+SUBDIRS = include hip-dex src
