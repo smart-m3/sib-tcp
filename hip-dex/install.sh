@@ -1,0 +1,1 @@
+export HIPDEX_INCLUDE_PATH=`pwd`
