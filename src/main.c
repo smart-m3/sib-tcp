@@ -1,4 +1,4 @@
-^/*
+/*
 
   2009, Nokia Corporation
   2012, University of Bologna
