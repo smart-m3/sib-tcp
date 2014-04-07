@@ -36,6 +36,10 @@
 
 #define SUBWAKEFREQ 10
 
+// Flags that are supplied to send() system call when sending data. 
+// MSG_NOSIGNAL needed to prevent signalling SIG_PIPE in case the remote
+// side has closed the connection.
+#define SEND_FLAGS (MSG_NOSIGNAL)
 
 typedef struct _Client
 {
@@ -1590,9 +1594,10 @@ static int listener_handle_subscribe(Listener *listener, Client *client, NodeMsg
                 }
                 n=send(subwaiter->fd, cipher, 1, 0);
                 #else
-                n=send(subwaiter->fd, " ", 1, 0);
+                n=send(subwaiter->fd, " ", 1, SEND_FLAGS);
                 error_in_hipdex = 0;
                 #endif
+
                 ///////////////////////////////////////
 
                 errorsock=getsockopt(subwaiter->fd, SOL_SOCKET, SO_ERROR, &optval, &optlen);
@@ -2407,9 +2412,9 @@ gint client_send_message( int fd, guchar *buf, gint len)
         }
         ///
         #ifdef HIPDEX
-        n = send(fd, cipher+total, bytesleft, 0);
+        n = send(fd, cipher+total, bytesleft, SEND_FLAGS);
         #else
-        n = send(fd, buf+total, bytesleft, 0);
+        n = send(fd, buf+total, bytesleft, SEND_FLAGS);
         #endif
 
         if(n == -1)
