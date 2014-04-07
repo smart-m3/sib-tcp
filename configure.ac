@@ -121,6 +121,25 @@ AC_ARG_ENABLE(avahi,
 )
 AM_CONDITIONAL(AVAHI, test $USE_AVAHI = yes)
 
+
+
+AC_ARG_ENABLE(hipdex,
+	AS_HELP_STRING([--enable-hipdex],
+			[enable HIPDEX security (default = no)]),
+	[
+		if test $enableval = no; then
+			USE_HIPDEX=no
+		else
+			USE_HIPDEX=yes
+			AC_DEFINE([HIPDEX],[1],[Use hipdex security])
+		fi
+	],[
+		USE_HIPDEX=no
+	]
+)
+AM_CONDITIONAL(HIPDEX, test $USE_HIPDEX = yes)
+
+
 ##############################################################################
 # Checks for typedefs, structures, and compiler characteristics.
 ##############################################################################
